@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
-using Rubberduck.Inspections.QuickFixes;
-using Rubberduck.Parsing.Inspections.Abstract;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.CodeAnalysis.QuickFixes;
+using Rubberduck.CodeAnalysis.QuickFixes.Concrete;
 using Rubberduck.Parsing.VBA;
 using Rubberduck.Parsing.VBA.Parsing;
 
@@ -45,6 +45,28 @@ End Sub";
                 @"'@MemberAttribute VB_Description, ""Desc""
 Public Sub Foo()
 Attribute Foo.VB_Description = ""Desc""
+    Const const1 As Integer = 9
+End Sub";
+
+            var actualCode = ApplyQuickFixToFirstInspectionResult(inputCode, state => new MissingAttributeInspection(state), CodeKind.AttributesCode);
+            Assert.AreEqual(expectedCode, actualCode);
+        }
+
+        [Test]
+        [Category("QuickFixes")]
+        //See issue #5268 at https://github.com/rubberduck-vba/Rubberduck/issues/5268
+        public void MissingMemberAttribute_ExcelHotkey_QuickFixWorks()
+        {
+            const string inputCode =
+                @"'@ExcelHotkey ""T""
+Public Sub Foo()
+    Const const1 As Integer = 9
+End Sub";
+
+            const string expectedCode =
+                @"'@ExcelHotkey ""T""
+Public Sub Foo()
+Attribute Foo.VB_ProcData.VB_Invoke_Func = ""T\n14""
     Const const1 As Integer = 9
 End Sub";
 

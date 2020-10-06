@@ -1,9 +1,8 @@
 using NUnit.Framework;
 using Rubberduck.Parsing.Annotations;
-using Rubberduck.VBEditor;
+using Rubberduck.Parsing.Annotations.Concrete;
 using RubberduckTests.Mocks;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace RubberduckTests.Grammar

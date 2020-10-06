@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 using Moq;
 using NUnit.Framework;
 using Rubberduck.Parsing.UIContext;
 using Rubberduck.Parsing.VBA;
 using Rubberduck.UnitTesting;
+using Rubberduck.VBEditor.ComManagement;
 using Rubberduck.VBEditor.ComManagement.TypeLibs.Abstract;
 using Rubberduck.VBEditor.SafeComWrappers;
 using Rubberduck.VBEditor.SafeComWrappers.Abstract;
@@ -47,8 +49,17 @@ End Sub";
 
         private MockedTestEngine()
         {
-            Dispatcher.Setup(d => d.InvokeAsync(It.IsAny<Action>())).Callback((Action action) => action.Invoke()).Verifiable();
-            
+            Dispatcher.Setup(d => d.InvokeAsync(It.IsAny<Action>()))
+                .Callback((Action action) => action.Invoke())
+                .Verifiable();
+            Dispatcher.Setup(d => d.StartTask(It.IsAny<Action>(), It.IsAny<TaskCreationOptions>()))
+                .Returns((Action action, TaskCreationOptions options) =>
+                    {
+                        action.Invoke();
+                        return Task.CompletedTask;
+                    })
+                .Verifiable();
+
             TypeLib.Setup(tlm => tlm.Dispose()).Verifiable();
             WrapperProvider.Setup(p => p.TypeLibWrapperFromProject(It.IsAny<string>())).Returns(TypeLib.Object).Verifiable();
 
@@ -64,7 +75,7 @@ End Sub";
 
             Vbe = builder.Build();
             ParserState = MockParser.Create(Vbe.Object).State;
-            TestEngine = new TestEngine(ParserState, _fakesFactory.Object, VbeInteraction.Object, WrapperProvider.Object, Dispatcher.Object, Vbe.Object);
+            TestEngine = new SynchronouslySuspendingTestEngine(ParserState, _fakesFactory.Object, VbeInteraction.Object, WrapperProvider.Object, Dispatcher.Object, Vbe.Object, ParserState.ProjectsProvider);
         }
 
         public MockedTestEngine(IReadOnlyList<string> moduleNames, IReadOnlyList<int> methodCounts) : this()
@@ -87,7 +98,7 @@ End Sub";
             project.AddProjectToVbeBuilder();
             Vbe = builder.Build();
             ParserState = MockParser.Create(Vbe.Object).State;
-            TestEngine = new TestEngine(ParserState, _fakesFactory.Object, VbeInteraction.Object, WrapperProvider.Object, Dispatcher.Object, Vbe.Object);
+            TestEngine = new SynchronouslySuspendingTestEngine(ParserState, _fakesFactory.Object, VbeInteraction.Object, WrapperProvider.Object, Dispatcher.Object, Vbe.Object, ParserState.ProjectsProvider);
         }
 
         public MockedTestEngine(int testMethodCount) 
@@ -246,5 +257,33 @@ Public Sub TestCleanup()
     'this method runs after every test in the module.
 End Sub
 ";
+
+        private class SynchronouslySuspendingTestEngine : TestEngine
+        {
+            private readonly RubberduckParserState _state;
+
+            public SynchronouslySuspendingTestEngine(
+                RubberduckParserState state,
+                IFakesFactory fakesFactory,
+                IVBEInteraction declarationRunner,
+                ITypeLibWrapperProvider wrapperProvider,
+                IUiDispatcher uiDispatcher,
+                IVBE vbe,
+                IProjectsProvider projectsProvider)
+                : base(state, fakesFactory, declarationRunner, wrapperProvider, uiDispatcher, vbe, projectsProvider)
+            {
+                _state = state;
+            }
+
+            protected override void RunInternal(IEnumerable<TestMethod> tests)
+            {
+                if (!CanRun)
+                {
+                    return;
+                }
+                //We have to do this on the same thread here to guarantee that the actions runs before the assert in the unit tests is called.
+                _state.OnSuspendParser(this, AllowedRunStates, () => RunWhileSuspended(tests));
+            }
+        }
     }
 }

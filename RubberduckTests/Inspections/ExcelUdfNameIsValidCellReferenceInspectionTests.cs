@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using NUnit.Framework;
-using Rubberduck.Inspections.Inspections.Concrete;
-using Rubberduck.Parsing.Inspections.Abstract;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
 using Rubberduck.Parsing.VBA;
 using Rubberduck.VBEditor.SafeComWrappers;
 using RubberduckTests.Mocks;
@@ -30,6 +30,20 @@ End Function
 ";
 
             Assert.AreEqual(1, InspectionResultCount(string.Format(codeTemplate, identifier), ComponentType.StandardModule));
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void ExcelUdfNameIsValidCellReferenceInspection_ReturnsResult_ValidCellsInPrivateModule()
+        {
+            const string code =
+                @"Option Private Module
+Public Function A1() As Long
+    A1 = 42
+End Function
+";
+
+            Assert.AreEqual(0, InspectionResultCount(code, ComponentType.StandardModule));
         }
 
         [TestCase("Foo")]
@@ -107,17 +121,7 @@ End {1}
         }
 
         private int InspectionResultCount(string inputCode, ComponentType moduleType)
-        {
-            var builder = new MockVbeBuilder();
-            var project = builder.ProjectBuilder("VBAProject", ProjectProtection.Unprotected)
-                .AddComponent("UnderTest", moduleType, inputCode)
-                .AddReference("Excel", MockVbeBuilder.LibraryPathMsExcel, 1, 8, true)
-                .Build();
-
-            var vbe = builder.AddProject(project).Build();
-
-            return InspectionResults(vbe.Object).Count();
-        }
+            => InspectionResultsForModules(("UnderTest", inputCode, moduleType), ReferenceLibrary.Excel).Count();
 
         protected override IInspection InspectionUnderTest(RubberduckParserState state)
         {

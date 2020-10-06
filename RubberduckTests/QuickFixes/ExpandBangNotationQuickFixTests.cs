@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
 using Rubberduck.CodeAnalysis.QuickFixes;
-using Rubberduck.Inspections.Concrete;
-using Rubberduck.Parsing.Inspections.Abstract;
+using Rubberduck.CodeAnalysis.QuickFixes.Concrete;
 using Rubberduck.Parsing.VBA;
 using Rubberduck.VBEditor.SafeComWrappers;
 using RubberduckTests.Mocks;
@@ -167,6 +167,68 @@ End Function
                 ("Module1", moduleCode, ComponentType.StandardModule));
 
             var actualModuleCode = ApplyQuickFixToFirstInspectionResult(vbe.Object, "Module1", state => new UseOfRecursiveBangNotationInspection(state));
+            Assert.AreEqual(expectedModuleCode, actualModuleCode);
+        }
+
+        [Test]
+        [Category("QuickFixes")]
+        public void OtherwiseIllegalDeclarationNamesAreEnclosedInBrackets()
+        {
+            var moduleCode = @"
+Private Sub Foo() 
+    Dim wkb As Excel.Workbook
+    Dim bar As Variant
+    bar = wkb.Sheets!MySheet.Range(""A1"").Value
+End Sub
+";
+
+            var expectedModuleCode = @"
+Private Sub Foo() 
+    Dim wkb As Excel.Workbook
+    Dim bar As Variant
+    bar = wkb.Sheets.[_Default](""MySheet"").Range(""A1"").Value
+End Sub
+";
+
+            var vbe = new MockVbeBuilder()
+                .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
+                .AddComponent("Module1", ComponentType.StandardModule, moduleCode)
+                .AddReference(ReferenceLibrary.Excel)
+                .AddProjectToVbeBuilder()
+                .Build();
+
+            var actualModuleCode = ApplyQuickFixToFirstInspectionResult(vbe.Object, "Module1", state => new UseOfBangNotationInspection(state));
+            Assert.AreEqual(expectedModuleCode, actualModuleCode);
+        }
+
+        [Test]
+        [Category("QuickFixes")]
+        public void SpecialDefaultMembersAreReplacedBasedOnName()
+        {
+            var moduleCode = @"
+Private Sub Foo() 
+    Dim baz As Excel.Range
+    Dim bar As Variant
+    Set bar = baz.Columns!A
+End Sub
+";
+
+            var expectedModuleCode = @"
+Private Sub Foo() 
+    Dim baz As Excel.Range
+    Dim bar As Variant
+    Set bar = baz.Columns.Item(""A"")
+End Sub
+";
+
+            var vbe = new MockVbeBuilder()
+                .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
+                .AddComponent("Module1", ComponentType.StandardModule, moduleCode)
+                .AddReference(ReferenceLibrary.Excel)
+                .AddProjectToVbeBuilder()
+                .Build();
+
+            var actualModuleCode = ApplyQuickFixToFirstInspectionResult(vbe.Object, "Module1", state => new UseOfBangNotationInspection(state));
             Assert.AreEqual(expectedModuleCode, actualModuleCode);
         }
 

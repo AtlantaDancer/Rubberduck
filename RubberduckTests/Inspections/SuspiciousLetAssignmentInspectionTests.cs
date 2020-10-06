@@ -1,10 +1,10 @@
 ﻿using System.Linq;
 using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
-using Rubberduck.Parsing.Inspections.Abstract;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.Parsing.Symbols;
 using Rubberduck.Parsing.VBA;
 using Rubberduck.VBEditor.SafeComWrappers;
-using RubberduckTests.Mocks;
 
 namespace RubberduckTests.Inspections
 {
@@ -41,20 +41,27 @@ Private Sub Bar()
 End Sub
 ";
 
-            var vbe = MockVbeBuilder.BuildFromModules(
+            var inspectionResults = InspectionResultsForModules(
                 ("Class1", class1Code, ComponentType.ClassModule),
                 ("Class2", class2Code, ComponentType.ClassModule),
                 ("Module1", moduleCode, ComponentType.StandardModule));
 
-            var inspectionResults = InspectionResults(vbe.Object);
             var inspectionResult = inspectionResults.Single();
 
-            Assert.IsNotNull(inspectionResult.Properties.RhSReference);
-
-            if (assignedTypeName.Equals("Object") || assignedToTypeName.Equals("Object"))
+            if (inspectionResult is IWithInspectionResultProperties<IdentifierReference> resultProperties)
             {
-                var deactivatedFixes = inspectionResult.Properties.DisableFixes;
-                Assert.AreEqual("ExpandDefaultMemberQuickFix", deactivatedFixes);
+                var rhsReference = resultProperties.Properties;
+                Assert.IsNotNull(rhsReference);
+
+                if (assignedTypeName.Equals("Object") || assignedToTypeName.Equals("Object"))
+                {
+                    var deactivatedFix = inspectionResult.DisabledQuickFixes.Single();
+                    Assert.AreEqual("ExpandDefaultMemberQuickFix", deactivatedFix);
+                }
+            }
+            else
+            {
+                Assert.Fail("Result is missing expected properties.");
             }
         }
 
@@ -88,12 +95,10 @@ Private Sub Bar()
 End Sub
 ";
 
-            var vbe = MockVbeBuilder.BuildFromModules(
+            var inspectionResults = InspectionResultsForModules(
                 ("Class1", class1Code, ComponentType.ClassModule),
                 ("Class2", class2Code, ComponentType.ClassModule),
                 ("Module1", moduleCode, ComponentType.StandardModule));
-
-            var inspectionResults = InspectionResults(vbe.Object);
 
             Assert.AreEqual(0, inspectionResults.Count());
         }
@@ -124,12 +129,10 @@ Private Sub Bar()
 End Sub
 ";
 
-            var vbe = MockVbeBuilder.BuildFromModules(
+            var inspectionResults = InspectionResultsForModules(
                 ("Class1", class1Code, ComponentType.ClassModule),
                 ("Class2", class2Code, ComponentType.ClassModule),
                 ("Module1", moduleCode, ComponentType.StandardModule));
-
-            var inspectionResults = InspectionResults(vbe.Object);
 
             Assert.AreEqual(0, inspectionResults.Count());
         }
@@ -160,12 +163,10 @@ Private Sub Bar()
 End Sub
 ";
 
-            var vbe = MockVbeBuilder.BuildFromModules(
+            var inspectionResults = InspectionResultsForModules(
                 ("Class1", class1Code, ComponentType.ClassModule),
                 ("Class2", class2Code, ComponentType.ClassModule),
                 ("Module1", moduleCode, ComponentType.StandardModule));
-
-            var inspectionResults = InspectionResults(vbe.Object);
 
             Assert.AreEqual(0, inspectionResults.Count());
         }

@@ -19,7 +19,7 @@ namespace Rubberduck.Resources.CodeExplorer {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class CodeExplorerUI {
@@ -111,7 +111,7 @@ namespace Rubberduck.Resources.CodeExplorer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Add.
+        ///   Looks up a localized string similar to Add....
         /// </summary>
         public static string CodeExplorer_Add {
             get {
@@ -129,7 +129,7 @@ namespace Rubberduck.Resources.CodeExplorer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Existing file....
+        ///   Looks up a localized string similar to Existing files....
         /// </summary>
         public static string CodeExplorer_AddExistingFileText {
             get {
@@ -237,6 +237,24 @@ namespace Rubberduck.Resources.CodeExplorer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Annotate.
+        /// </summary>
+        public static string CodeExplorer_Annotate {
+            get {
+                return ResourceManager.GetString("CodeExplorer_Annotate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rubberduck User Declarations - {0}.
+        /// </summary>
+        public static string CodeExplorer_AppendHeader {
+            get {
+                return ResourceManager.GetString("CodeExplorer_AppendHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Collapse all.
         /// </summary>
         public static string CodeExplorer_CollapseSubnodesToolTip {
@@ -327,6 +345,15 @@ namespace Rubberduck.Resources.CodeExplorer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Extract Interface....
+        /// </summary>
+        public static string CodeExplorer_ExtractInterfaceText {
+            get {
+                return ResourceManager.GetString("CodeExplorer_ExtractInterfaceText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Find All Implementations....
         /// </summary>
         public static string CodeExplorer_FindAllImplementationsText {
@@ -377,6 +404,15 @@ namespace Rubberduck.Resources.CodeExplorer {
         public static string CodeExplorer_LibraryReferences {
             get {
                 return ResourceManager.GetString("CodeExplorer_LibraryReferences", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move to Folder....
+        /// </summary>
+        public static string CodeExplorer_MoveToFolder {
+            get {
+                return ResourceManager.GetString("CodeExplorer_MoveToFolder", resourceCulture);
             }
         }
         
@@ -471,7 +507,7 @@ namespace Rubberduck.Resources.CodeExplorer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Rename.
+        ///   Looks up a localized string similar to Rename....
         /// </summary>
         public static string CodeExplorer_Rename {
             get {
@@ -1012,12 +1048,30 @@ namespace Rubberduck.Resources.CodeExplorer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Replace Contents from Files....
+        /// </summary>
+        public static string ReplaceFromFiles {
+            get {
+                return ResourceManager.GetString("ReplaceFromFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
         public static System.Drawing.Bitmap status_offline {
             get {
                 object obj = ResourceManager.GetObject("status_offline", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sync Project.
+        /// </summary>
+        public static string SyncProject {
+            get {
+                return ResourceManager.GetString("SyncProject", resourceCulture);
             }
         }
         
@@ -1038,6 +1092,15 @@ namespace Rubberduck.Resources.CodeExplorer {
             get {
                 object obj = ResourceManager.GetObject("ui_tab_content", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update Components from Files....
+        /// </summary>
+        public static string UpdateFromFiles {
+            get {
+                return ResourceManager.GetString("UpdateFromFiles", resourceCulture);
             }
         }
     }

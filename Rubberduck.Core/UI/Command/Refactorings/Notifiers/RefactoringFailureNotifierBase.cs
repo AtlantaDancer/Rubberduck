@@ -41,6 +41,13 @@ namespace Rubberduck.UI.Command.Refactorings.Notifiers
                     return Resources.RubberduckUI.RefactoringFailure_TargetNull;
                 case TargetDeclarationNotUserDefinedException targetBuiltIn:
                     return string.Format(Resources.RubberduckUI.RefactoringFailure_TargetNotUserDefined, targetBuiltIn.TargetDeclaration.QualifiedName);
+                case SuspendParserFailureException suspendParserFailure:
+                    Logger.Warn(suspendParserFailure);
+                    return Resources.RubberduckUI.RefactoringFailure_SuspendParserFailure;
+                case AffectedModuleIsStaleException affectedModuleIsStale:
+                    return string.Format(
+                        Resources.RubberduckUI.RefactoringFailure_AffectedModuleIsStale,
+                        affectedModuleIsStale.StaleModule.ToString());
                 default:
                     Logger.Error(exception);
                     return string.Empty;

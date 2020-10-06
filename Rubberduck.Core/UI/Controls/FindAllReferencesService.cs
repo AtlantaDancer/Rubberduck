@@ -22,9 +22,13 @@ namespace Rubberduck.UI.Controls
         private readonly SearchResultPresenterInstanceManager _presenterService;
         private readonly IUiDispatcher _uiDispatcher;
 
-        public FindAllReferencesService(INavigateCommand navigateCommand, IMessageBox messageBox,
-            RubberduckParserState state, ISearchResultsWindowViewModel viewModel,
-            SearchResultPresenterInstanceManager presenterService, IUiDispatcher uiDispatcher)
+        public FindAllReferencesService(
+            INavigateCommand navigateCommand, 
+            IMessageBox messageBox,
+            RubberduckParserState state, 
+            ISearchResultsWindowViewModel viewModel,
+            SearchResultPresenterInstanceManager presenterService, 
+            IUiDispatcher uiDispatcher)
         {
             _navigateCommand = navigateCommand;
             _messageBox = messageBox;
@@ -141,11 +145,14 @@ namespace Rubberduck.UI.Controls
 
         private SearchResultsViewModel CreateViewModel(Declaration declaration)
         {
-            var results = declaration.References.Distinct().Select(reference =>
-                new SearchResultItem(
-                    reference.ParentNonScoping,
-                    new NavigateCodeEventArgs(reference.QualifiedModuleName, reference.Selection),
-                    GetModuleLine(reference.QualifiedModuleName, reference.Selection.StartLine)));
+            var results = declaration.References
+                .Where(reference => !reference.IsArrayAccess)
+                .Distinct()
+                .Select(reference =>
+                    new SearchResultItem(
+                        reference.ParentNonScoping,
+                        new NavigateCodeEventArgs(reference.QualifiedModuleName, reference.Selection),
+                        GetModuleLine(reference.QualifiedModuleName, reference.Selection.StartLine)));
 
             var accessor = declaration.DeclarationType.HasFlag(DeclarationType.PropertyGet) ? "(get)"
                 : declaration.DeclarationType.HasFlag(DeclarationType.PropertyLet) ? "(let)"

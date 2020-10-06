@@ -1,9 +1,12 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading;
 using NUnit.Framework;
 using Moq;
-using Rubberduck.Inspections.Concrete;
-using Rubberduck.Inspections.QuickFixes;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.CodeAnalysis.QuickFixes.Concrete.Refactoring;
+using Rubberduck.Parsing.UIContext;
+using Rubberduck.Parsing.VBA;
 using RubberduckTests.Mocks;
 using Rubberduck.Refactorings;
 using Rubberduck.Refactorings.RemoveParameters;
@@ -39,7 +42,14 @@ End Sub";
                 var selectionService = MockedSelectionService();
 
                 var factory = new Mock<IRefactoringPresenterFactory>().Object;
-                var refactoring = new RemoveParametersRefactoring(state, factory, rewritingManager, selectionService);
+                var selectedDeclarationProvider = new SelectedDeclarationProvider(selectionService, state);
+                var uiDispatcherMock = new Mock<IUiDispatcher>();
+                uiDispatcherMock
+                    .Setup(m => m.Invoke(It.IsAny<Action>()))
+                    .Callback((Action action) => action.Invoke());
+                var baseRefactoring = new RemoveParameterRefactoringAction(state, rewritingManager);
+                var userInteraction = new RefactoringUserInteraction<IRemoveParametersPresenter, RemoveParametersModel>(factory, uiDispatcherMock.Object);
+                var refactoring = new RemoveParametersRefactoring(baseRefactoring, state, userInteraction, selectionService, selectedDeclarationProvider);
                 new RemoveUnusedParameterQuickFix(refactoring)
                     .Fix(inspectionResults.First(), rewriteSession);
                 Assert.AreEqual(expectedCode, component.CodeModule.Content());

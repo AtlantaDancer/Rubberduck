@@ -1,16 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
-using Rubberduck.Parsing.Inspections.Abstract;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.Parsing.VBA;
 using Rubberduck.VBEditor.SafeComWrappers;
-using RubberduckTests.Mocks;
 
 namespace RubberduckTests.Inspections
 {
     [TestFixture]
-    public class MissingMemberAnnotationInspectionTests
+    public class MissingMemberAnnotationInspectionTests : InspectionTestsBase
     {
         [Test]
         [Category("Inspections")]
@@ -178,22 +177,26 @@ End Sub";
             var expectedAttributeValues = new List<string>{"-4"};
 
             var inspectionResult = inspectionResults.Single();
-            var actualAttributeBaseName = inspectionResult.Properties.AttributeName;
-            var actualAttributeValues = inspectionResult.Properties.AttributeValues;
+            if (inspectionResult is IWithInspectionResultProperties<(string AttributeName, IReadOnlyList<string>AttributeValues)> resultProperties)
+            {
+                var (actualAttributeBaseName, actualAttributeValues) = resultProperties.Properties;
 
-            Assert.AreEqual(expectedAttributeName, actualAttributeBaseName);
-            Assert.AreEqual(expectedAttributeValues.Count, actualAttributeValues.Count);
-            Assert.AreEqual(expectedAttributeValues[0], actualAttributeValues[0]);
+                Assert.AreEqual(expectedAttributeName, actualAttributeBaseName);
+                Assert.AreEqual(expectedAttributeValues.Count, actualAttributeValues.Count);
+                Assert.AreEqual(expectedAttributeValues[0], actualAttributeValues[0]);
+            }
+            else
+            {
+                Assert.Fail("Result is missing expected properties.");
+            }
         }
 
         private IEnumerable<IInspectionResult> InspectionResults(string inputCode, ComponentType componentType = ComponentType.StandardModule)
+            => InspectionResultsForModules(("TestModule", inputCode, componentType));
+
+        protected override IInspection InspectionUnderTest(RubberduckParserState state)
         {
-            var vbe = MockVbeBuilder.BuildFromSingleModule(inputCode, componentType, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-                var inspection = new MissingMemberAnnotationInspection(state);
-                return inspection.GetInspectionResults(CancellationToken.None);
-            }
+            return new MissingMemberAnnotationInspection(state);
         }
     }
 }

@@ -1,7 +1,7 @@
 using System.Linq;
-using System.Threading;
 using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
 using Rubberduck.Parsing.VBA;
 using Rubberduck.VBEditor.SafeComWrappers;
 using RubberduckTests.Mocks;
@@ -9,7 +9,7 @@ using RubberduckTests.Mocks;
 namespace RubberduckTests.Inspections
 {
     [TestFixture]
-    public class ImplicitActiveSheetReferenceInspectionTests
+    public class ImplicitActiveSheetReferenceInspectionTests : InspectionTestsBase
     {
         [Test]
         [Category("Inspections")]
@@ -21,28 +21,50 @@ namespace RubberduckTests.Inspections
     arr1 = Range(""A1:B2"")
 End Sub
 ";
+            var modules = new(string, string, ComponentType)[] { ("Class1", inputCode, ComponentType.ClassModule) };
+            Assert.AreEqual(1, InspectionResultsForModules(modules, ReferenceLibrary.Excel).Count());
+        }
 
-            var builder = new MockVbeBuilder();
-            var project = builder.ProjectBuilder("TestProject1", "TestProject1", ProjectProtection.Unprotected)
-                .AddComponent("Class1", ComponentType.ClassModule, inputCode)
-                .AddReference("Excel", MockVbeBuilder.LibraryPathMsExcel, 1, 8, true)
-                .Build();
-            var vbe = builder.AddProject(project).Build();
+        [Test]
+        [Category("Inspections")]
+        public void ImplicitActiveSheetReference_ReportsCells()
+        {
+            const string inputCode =
+                @"Sub foo()
+    Dim arr1() As Variant
+    arr1 = Cells(1,2)
+End Sub
+";
+            var modules = new (string, string, ComponentType)[] { ("Class1", inputCode, ComponentType.ClassModule) };
+            Assert.AreEqual(1, InspectionResultsForModules(modules, ReferenceLibrary.Excel).Count());
+        }
 
-            var parser = MockParser.Create(vbe.Object);
-            using (var state = parser.State)
-            {
-                parser.Parse(new CancellationTokenSource());
-                if (state.Status >= ParserState.Error)
-                {
-                    Assert.Inconclusive("Parser Error");
-                }
+        [Test]
+        [Category("Inspections")]
+        public void ImplicitActiveSheetReference_ReportsColumns()
+        {
+            const string inputCode =
+                @"Sub foo()
+    Dim arr1() As Variant
+    arr1 = Columns(3)
+End Sub
+";
+            var modules = new (string, string, ComponentType)[] { ("Class1", inputCode, ComponentType.ClassModule) };
+            Assert.AreEqual(1, InspectionResultsForModules(modules, ReferenceLibrary.Excel).Count());
+        }
 
-                var inspection = new ImplicitActiveSheetReferenceInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(1, inspectionResults.Count());
-            }
+        [Test]
+        [Category("Inspections")]
+        public void ImplicitActiveSheetReference_ReportsRows()
+        {
+            const string inputCode =
+                @"Sub foo()
+    Dim arr1() As Variant
+    arr1 = Rows(3)
+End Sub
+";
+            var modules = new (string, string, ComponentType)[] { ("Class1", inputCode, ComponentType.ClassModule) };
+            Assert.AreEqual(1, InspectionResultsForModules(modules, ReferenceLibrary.Excel).Count());
         }
 
         [Test]
@@ -58,30 +80,22 @@ End Sub
 End Sub
 ";
 
-            var builder = new MockVbeBuilder();
-            var project = builder.ProjectBuilder("TestProject1", "TestProject1", ProjectProtection.Unprotected)
-                .AddComponent("Class1", ComponentType.ClassModule, inputCode)
-                .AddReference("Excel", MockVbeBuilder.LibraryPathMsExcel, 1, 8, true)
-                .Build();
-            var vbe = builder.AddProject(project).Build();
-
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-                var inspection = new ImplicitActiveSheetReferenceInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(0, inspectionResults.Count());
-            }
+            var modules = new(string, string, ComponentType)[] { ("Class1", inputCode, ComponentType.ClassModule) };
+            Assert.AreEqual(0, InspectionResultsForModules(modules, ReferenceLibrary.Excel).Count());
         }
 
         [Test]
         [Category("Inspections")]
         public void InspectionName()
         {
-            const string inspectionName = "ImplicitActiveSheetReferenceInspection";
             var inspection = new ImplicitActiveSheetReferenceInspection(null);
 
-            Assert.AreEqual(inspectionName, inspection.Name);
+            Assert.AreEqual(nameof(ImplicitActiveSheetReferenceInspection), inspection.Name);
+        }
+
+        protected override IInspection InspectionUnderTest(RubberduckParserState state)
+        {
+            return new ImplicitActiveSheetReferenceInspection(state);
         }
     }
 }

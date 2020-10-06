@@ -1,13 +1,17 @@
 using System.Linq;
-using System.Threading;
+using Moq;
 using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.Parsing.VBA;
+using Rubberduck.VBEditor.SafeComWrappers;
+using Rubberduck.VBEditor.SafeComWrappers.Abstract;
 using RubberduckTests.Mocks;
 
 namespace RubberduckTests.Inspections
 {
     [TestFixture]
-    public class ObsoleteGlobalInspectionTests
+    public class ObsoleteGlobalInspectionTests : InspectionTestsBase
     {
         [Test]
         [Category("Inspections")]
@@ -15,15 +19,7 @@ namespace RubberduckTests.Inspections
         {
             const string inputCode =
                 @"Global var1 As Integer";
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new ObsoleteGlobalInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(1, inspectionResults.Count());
-            }
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -33,15 +29,7 @@ namespace RubberduckTests.Inspections
             const string inputCode =
                 @"Global var1 As Integer
 Global var2 As String";
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new ObsoleteGlobalInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(2, inspectionResults.Count());
-            }
+            Assert.AreEqual(2, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -50,15 +38,7 @@ Global var2 As String";
         {
             const string inputCode =
                 @"Public var1 As Integer";
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new ObsoleteGlobalInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(0, inspectionResults.Count());
-            }
+            Assert.AreEqual(0, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -68,15 +48,24 @@ Global var2 As String";
             const string inputCode =
                 @"Public var1 As Integer
 Global var2 As Date";
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
+        Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
+        }
 
-                var inspection = new ObsoleteGlobalInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
+        [Test]
+        [Category("Inspections")]
+        public void ObsoleteGlobal_ReturnsNoResult_BracketedExpression()
+        {
+            const string code = @"
+Public Sub DoSomething()
+    [A1] = 42
+End Sub
+";
+            var vbe = MockVbeBuilder.BuildFromModules(("Module1", code, ComponentType.StandardModule), new ReferenceLibrary[] { ReferenceLibrary.VBA, ReferenceLibrary.Excel });
+            var mockHost = new Mock<IHostApplication>();
+            mockHost.SetupGet(m => m.ApplicationName).Returns("Excel");
+            vbe.Setup(m => m.HostApplication()).Returns(() => mockHost.Object);
 
-                Assert.AreEqual(1, inspectionResults.Count());
-            }
+            Assert.AreEqual(0, InspectionResults(vbe.Object).Count());
         }
 
         [Test]
@@ -86,25 +75,21 @@ Global var2 As Date";
             const string inputCode =
                 @"'@Ignore ObsoleteGlobal
 Global var1 As Integer";
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new ObsoleteGlobalInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.IsFalse(inspectionResults.Any());
-            }
+            Assert.AreEqual(0, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
         [Category("Inspections")]
         public void InspectionName()
         {
-            const string inspectionName = "ObsoleteGlobalInspection";
             var inspection = new ObsoleteGlobalInspection(null);
 
-            Assert.AreEqual(inspectionName, inspection.Name);
+            Assert.AreEqual(nameof(ObsoleteGlobalInspection), inspection.Name);
+        }
+
+        protected override IInspection InspectionUnderTest(RubberduckParserState state)
+        {
+            return new ObsoleteGlobalInspection(state);
         }
     }
 }

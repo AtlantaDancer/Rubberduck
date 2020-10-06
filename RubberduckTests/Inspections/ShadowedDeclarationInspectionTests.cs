@@ -4,15 +4,16 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
-using Rubberduck.Parsing.Inspections.Abstract;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.Parsing.VBA;
 using Rubberduck.VBEditor.SafeComWrappers;
 using RubberduckTests.Mocks;
 
 namespace RubberduckTests.Inspections
 {
     [TestFixture]
-    public class ShadowedDeclarationInspectionTests
+    public class ShadowedDeclarationInspectionTests : InspectionTestsBase
     {
         private const string ProjectName = "SameNameProject";
         private const string ProceduralModuleName = "SameNameProceduralModule";
@@ -5126,7 +5127,7 @@ Public {sameName} As String";
             var vbe = new MockVbeBuilder()
                 .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
                 .AddComponent("TestClass", ComponentType.ClassModule, code)
-                .AddReference("VBA", MockVbeBuilder.LibraryPathVBA, 4, 2, true)
+                .AddReference(ReferenceLibrary.VBA)
                 .AddProjectToVbeBuilder()
                 .Build();
 
@@ -5152,7 +5153,7 @@ End Sub";
             var vbe = new MockVbeBuilder()
                 .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
                 .AddComponent("TestClass", ComponentType.ClassModule, code)
-                .AddReference("VBA", MockVbeBuilder.LibraryPathVBA, 4, 2, true)
+                .AddReference(ReferenceLibrary.VBA)
                 .AddProjectToVbeBuilder()
                 .Build();
 
@@ -5177,7 +5178,7 @@ End Sub";
             var vbe = new MockVbeBuilder()
                 .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
                 .AddComponent("TestClass", ComponentType.ClassModule, code)
-                .AddReference("VBA", MockVbeBuilder.LibraryPathVBA, 4, 2, true)
+                .AddReference(ReferenceLibrary.VBA)
                 .AddProjectToVbeBuilder()
                 .Build();
 
@@ -5212,7 +5213,7 @@ End Sub";
             var vbe = new MockVbeBuilder()
                 .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
                 .AddComponent("TestClass", ComponentType.ClassModule, code)
-                .AddReference("VBA", MockVbeBuilder.LibraryPathVBA, 4, 2, true)
+                .AddReference(ReferenceLibrary.VBA)
                 .AddProjectToVbeBuilder()
                 .Build();
 
@@ -5246,7 +5247,7 @@ End Sub";
             var vbe = new MockVbeBuilder()
                 .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
                 .AddComponent("TestClass", ComponentType.ClassModule, code)
-                .AddReference("VBA", MockVbeBuilder.LibraryPathVBA, 4, 2, true)
+                .AddReference(ReferenceLibrary.VBA)
                 .AddProjectToVbeBuilder()
                 .Build();
 
@@ -5480,6 +5481,11 @@ End Sub";
             }
 
             return codeBuilder.ToString();
+        }
+
+        protected override IInspection InspectionUnderTest(RubberduckParserState state)
+        {
+            return new ShadowedDeclarationInspection(state);
         }
     }
 }

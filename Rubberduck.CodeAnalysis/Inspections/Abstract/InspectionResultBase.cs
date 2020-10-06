@@ -1,17 +1,13 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using Antlr4.Runtime;
 using Rubberduck.Common;
-using Rubberduck.Parsing.Inspections;
-using Rubberduck.Parsing.Inspections.Abstract;
-using Rubberduck.Resources.Inspections;
+using Rubberduck.Interaction.Navigation;
 using Rubberduck.Parsing.Symbols;
 using Rubberduck.VBEditor;
-using Rubberduck.Interaction.Navigation;
 
-namespace Rubberduck.Inspections.Abstract
+namespace Rubberduck.CodeAnalysis.Inspections.Abstract
 {
-    public abstract class InspectionResultBase : IInspectionResult, INavigateSource, IExportable
+    internal abstract class InspectionResultBase : IInspectionResult, INavigateSource
     {
         protected InspectionResultBase(IInspection inspection,
             string description,
@@ -20,7 +16,7 @@ namespace Rubberduck.Inspections.Abstract
             Declaration target,
             QualifiedSelection qualifiedSelection,
             QualifiedMemberName? qualifiedMemberName,
-            dynamic properties)
+            ICollection<string> disabledQuickFixes = null)
         {
             Inspection = inspection;
             Description = description?.Capitalize();
@@ -29,7 +25,7 @@ namespace Rubberduck.Inspections.Abstract
             Target = target;
             QualifiedSelection = qualifiedSelection;
             QualifiedMemberName = qualifiedMemberName;
-            Properties = properties ?? new PropertyBag();
+            DisabledQuickFixes = disabledQuickFixes ?? new List<string>();
         }
 
         public IInspection Inspection { get; }
@@ -38,7 +34,7 @@ namespace Rubberduck.Inspections.Abstract
         public QualifiedMemberName? QualifiedMemberName { get; }
         public ParserRuleContext Context { get; }
         public Declaration Target { get; }
-        public dynamic Properties { get; }
+        public ICollection<string> DisabledQuickFixes { get; }
 
         public virtual bool ChangesInvalidateResult(ICollection<QualifiedModuleName> modifiedModules)
         {
@@ -56,39 +52,6 @@ namespace Rubberduck.Inspections.Abstract
             return Inspection.CompareTo(other.Inspection);
         }
 
-        /// <summary>
-        /// WARNING: This property can have side effects. It can change the ActiveVBProject if the result has a null Declaration, 
-        /// which causes a flicker in the VBE. This should only be called if it is *absolutely* necessary.
-        /// </summary>
-        public string ToClipboardString()
-        {           
-            var module = QualifiedSelection.QualifiedName;
-            var documentName = Target != null 
-                ? Target.ProjectDisplayName 
-                : string.Empty;
-            //todo: Find a sane way to reimplement this.
-            //if (string.IsNullOrEmpty(documentName))
-            //{
-            //    var component = module.Component;
-            //    documentName = component != null 
-            //        ? component.ParentProject.ProjectDisplayName 
-            //        : string.Empty;
-            //}
-            if (string.IsNullOrEmpty(documentName))
-            {
-                documentName = Path.GetFileName(module.ProjectPath);
-            }
-
-            return string.Format(
-                InspectionsUI.QualifiedSelectionInspection,
-                Inspection.Severity,
-                Description,
-                $"({documentName})",
-                module.ProjectName,
-                module.ComponentName,
-                QualifiedSelection.Selection.StartLine);
-        }
-
         private NavigateCodeEventArgs _navigationArgs;
         public NavigateCodeEventArgs GetNavigationArgs()
         {
@@ -104,12 +67,6 @@ namespace Rubberduck.Inspections.Abstract
         public int CompareTo(object obj)
         {
             return CompareTo(obj as IInspectionResult);
-        }
-
-        public object[] ToArray()
-        {
-            var module = QualifiedSelection.QualifiedName;
-            return new object[] { Inspection.Severity.ToString(), module.ProjectName, module.ComponentName, Description, QualifiedSelection.Selection.StartLine, QualifiedSelection.Selection.StartColumn };
         }
     }
 }

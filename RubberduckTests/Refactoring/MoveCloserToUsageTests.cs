@@ -20,11 +20,75 @@ namespace RubberduckTests.Refactoring
         [Test]
         [Category("Refactorings")]
         [Category("Move Closer")]
+        public void MoveCloserToUsageRefactoring_ModuleVariable_ClearsResidualNewLines()
+        {
+            //Input
+            const string inputCode =
+@"Private bar As Boolean
+
+
+
+
+
+Private Sub Foo()
+    bar = True
+End Sub";
+            var selection = new Selection(1, 1);
+
+            //Expectation
+            const string expectedCode =
+                @"Private Sub Foo()
+    Dim bar As Boolean
+    bar = True
+End Sub";
+
+            var actualCode = RefactoredCode(inputCode, selection);
+            Assert.AreEqual(expectedCode, actualCode);
+        }
+
+        [Test]
+        [Category("Refactorings")]
+        [Category("Move Closer")]
+        public void MoveCloserToUsageRefactoring_LocalVariable_ClearsResidualNewLines()
+        {
+            //Input
+            const string inputCode =
+@"Private Sub Foo()
+    Dim bar As Boolean
+
+    Dim var1 As Long
+
+    Dim var2 As String
+
+    bar = True
+End Sub";
+            var selection = new Selection(2, 10);
+
+            //Expectation
+            const string expectedCode =
+@"Private Sub Foo()
+    Dim var1 As Long
+
+    Dim var2 As String
+
+    Dim bar As Boolean
+    bar = True
+End Sub";
+
+            var actualCode = RefactoredCode(inputCode, selection);
+            Assert.AreEqual(expectedCode, actualCode);
+        }
+
+        [Test]
+        [Category("Refactorings")]
+        [Category("Move Closer")]
         public void MoveCloserToUsageRefactoring_Field()
         {
             //Input
             const string inputCode =
                 @"Private bar As Boolean
+
+
 Private Sub Foo()
     bar = True
 End Sub";
@@ -345,7 +409,7 @@ End Sub";
     bat = True
     bar = 3
 End Sub";
-            var selection = new Selection(2, 16);
+            var selection = new Selection(2, 9);
 
             //Expectation
             const string expectedCode =
@@ -377,7 +441,7 @@ End Sub";
     bar = 1
     bat = True
 End Sub";
-            var selection = new Selection(3, 16);
+            var selection = new Selection(3, 10);
 
             //Expectation
             const string expectedCode =
@@ -409,7 +473,7 @@ End Sub";
     bar = 4
     bay = #1/13/2004#
 End Sub";
-            var selection = new Selection(4, 16);
+            var selection = new Selection(4, 11);
 
             //Expectation
             const string expectedCode =
@@ -550,7 +614,6 @@ End Sub";
             var selection = new Selection(2, 1);
             const string expectedCode =
                 @"
-
 Public Sub Test()
     Dim foo As Long
     SomeSub someParam:=foo
@@ -581,8 +644,8 @@ End Sub";
 
             var selection = new Selection(1, 1);
             const string expectedCode =
-                @"
-Public Sub Test(): Dim foo As Long : SomeSub someParam:=foo: End Sub
+
+@"Public Sub Test(): Dim foo As Long : SomeSub someParam:=foo: End Sub
 
 Public Sub SomeSub(ByVal someParam As Long)
     Debug.Print someParam
@@ -824,7 +887,7 @@ End Sub";
             var vbe = new MockVbeBuilder()
                 .ProjectBuilder("TestProject", ProjectProtection.Unprotected)
                 .AddComponent("Module", ComponentType.StandardModule, inputCode)
-                .AddReference("EXCEL", MockVbeBuilder.LibraryPathMsExcel, 1, 8, true)
+                .AddReference(ReferenceLibrary.Excel)
                 .AddProjectToVbeBuilder()
                 .Build()
                 .Object;
@@ -929,9 +992,7 @@ End Sub";
 
             var selection = new Selection(1, 1);
 
-            const string expectedCode = @"
-
-Public Sub Test()
+            const string expectedCode = @"Public Sub Test()
     Debug.Print ""Some statements between""
     Debug.Print ""Declaration and first usage!""
     Dim foo As Class1
@@ -1074,7 +1135,9 @@ End Sub";
 
         protected override IRefactoring TestRefactoring(IRewritingManager rewritingManager, RubberduckParserState state, ISelectionService selectionService)
         {
-            return new MoveCloserToUsageRefactoring(state, rewritingManager, selectionService);
+            var selectedDeclarationProvider = new SelectedDeclarationProvider(selectionService, state);
+            var baseRefactoring = new MoveCloserToUsageRefactoringAction(rewritingManager);
+            return new MoveCloserToUsageRefactoring(baseRefactoring, state, selectionService, selectedDeclarationProvider);
         }
     }
 }

@@ -66,8 +66,12 @@ namespace Rubberduck.Parsing
                 return default;
             }
 
-            var results = context.children.Where(child => child is TContext);
-            return results.Any() ? (TContext)results.First() : default;
+            var results = context.children
+                .Where(child => child is TContext)
+                .ToList();
+            return results.Any() 
+                ? (TContext)results.First() 
+                : default;
         }
 
         /// <summary>
@@ -109,11 +113,8 @@ namespace Rubberduck.Parsing
             {
                 return false;
             }
-            if (context == targetParent)
-            {
-                return true;
-            }
-            return IsDescendentOf_Recursive(context.Parent, targetParent);
+            return context == targetParent 
+                   || IsDescendentOf_Recursive(context.Parent, targetParent);
         }
 
         /// <summary>
@@ -121,15 +122,15 @@ namespace Rubberduck.Parsing
         /// </summary>
         public static TContext GetAncestor<TContext>(this ParserRuleContext context)
         {
-            if (context == null)
+            switch (context)
             {
-                return default;
+                case null:
+                    return default;
+                case TContext _:
+                    return GetAncestor_Recursive<TContext>((ParserRuleContext)context.Parent);
+                default:
+                    return GetAncestor_Recursive<TContext>(context);
             }
-            if (context is TContext)
-            {
-                return GetAncestor_Recursive<TContext>((ParserRuleContext)context.Parent);
-            }
-            return GetAncestor_Recursive<TContext>(context);
         }
 
         /// <summary>
@@ -143,15 +144,15 @@ namespace Rubberduck.Parsing
 
         private static TContext GetAncestor_Recursive<TContext>(ParserRuleContext context)
         {
-            if (context == null)
+            switch (context)
             {
-                return default;
+                case null:
+                    return default;
+                case TContext tContext:
+                    return tContext;
+                default:
+                    return GetAncestor_Recursive<TContext>((ParserRuleContext)context.Parent);
             }
-            if (context is TContext)
-            {
-                return (TContext)System.Convert.ChangeType(context, typeof(TContext));
-            }
-            return GetAncestor_Recursive<TContext>((ParserRuleContext)context.Parent);
         }
 
         /// <summary>
@@ -169,9 +170,7 @@ namespace Rubberduck.Parsing
                 return context;
             }
 
-            var parent = context.Parent as ParserRuleContext;
-
-            if (parent == null)
+            if (!(context.Parent is ParserRuleContext parent))
             {
                 return default;
             }
@@ -288,12 +287,22 @@ namespace Rubberduck.Parsing
             return (optionContext is null) || !(optionContext.BINARY() is null);
         }
 
-        /// Returns the context's first descendent of the generic type containing the token with the specified token index.
+        /// <summary>
+        /// Returns the context's widest descendent of the generic type containing the token with the specified token index.
         /// </summary>
-        public static TContext GetDescendentContainingTokenIndex<TContext>(this ParserRuleContext context, int tokenIndex) where TContext : ParserRuleContext
+        public static TContext GetWidestDescendentContainingTokenIndex<TContext>(this ParserRuleContext context, int tokenIndex) where TContext : ParserRuleContext
         {
             var descendents = GetDescendentsContainingTokenIndex<TContext>(context, tokenIndex);
             return descendents.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Returns the context's smallest descendent of the generic type containing the token with the specified token index.
+        /// </summary>
+        public static TContext GetSmallestDescendentContainingTokenIndex<TContext>(this ParserRuleContext context, int tokenIndex) where TContext : ParserRuleContext
+        {
+            var descendents = GetDescendentsContainingTokenIndex<TContext>(context, tokenIndex);
+            return descendents.LastOrDefault();
         }
 
         /// <summary>
@@ -326,6 +335,53 @@ namespace Rubberduck.Parsing
         }
 
         /// <summary>
+        /// Returns the context's widest descendent of the generic type containing the specified selection.
+        /// </summary>
+        public static TContext GetWidestDescendentContainingSelection<TContext>(this ParserRuleContext context, Selection selection) where TContext : ParserRuleContext
+        {
+            var descendents = GetDescendentsContainingSelection<TContext>(context, selection);
+            return descendents.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Returns the context's smallest descendent of the generic type containing the specified selection.
+        /// </summary>
+        public static TContext GetSmallestDescendentContainingSelection<TContext>(this ParserRuleContext context, Selection selection) where TContext : ParserRuleContext
+        {
+            var descendents = GetDescendentsContainingSelection<TContext>(context, selection);
+            return descendents.LastOrDefault();
+        }
+
+        /// <summary>
+        /// Returns all the context's descendents of the generic type containing the specified selection.
+        /// If there are multiple matches, they are ordered from outermost to innermost context.
+        /// </summary>
+        public static IEnumerable<TContext> GetDescendentsContainingSelection<TContext>(this ParserRuleContext context, Selection selection) where TContext : ParserRuleContext
+        {
+            if (context == null || !context.GetSelection().Contains(selection))
+            {
+                return new List<TContext>();
+            }
+
+            var matches = new List<TContext>();
+            if (context is TContext match)
+            {
+                matches.Add(match);
+            }
+
+            foreach (var child in context.children)
+            {
+                if (child is ParserRuleContext childContext && childContext.GetSelection().Contains(selection))
+                {
+                    matches.AddRange(childContext.GetDescendentsContainingSelection<TContext>(selection));
+                    break;  //Only one child can contain the selection.
+                }
+            }
+
+            return matches;
+        }
+
+        /// <summary>
         /// Returns the context containing the token preceding the context provided it is of the specified generic type.
         /// </summary>
         public static bool TryGetPrecedingContext<TContext>(this ParserRuleContext context, out TContext precedingContext) where TContext : ParserRuleContext
@@ -344,7 +400,7 @@ namespace Rubberduck.Parsing
                 return false;
             }
 
-            precedingContext = ancestorContainingPrecedingIndex.GetDescendentContainingTokenIndex<TContext>(precedingTokenIndex);
+            precedingContext = ancestorContainingPrecedingIndex.GetWidestDescendentContainingTokenIndex<TContext>(precedingTokenIndex);
             return precedingContext != null;
         }
 
@@ -367,7 +423,7 @@ namespace Rubberduck.Parsing
                 return false;
             }
 
-            followingContext = ancestorContainingFollowingIndex.GetDescendentContainingTokenIndex<TContext>(followingTokenIndex);
+            followingContext = ancestorContainingFollowingIndex.GetWidestDescendentContainingTokenIndex<TContext>(followingTokenIndex);
             return followingContext != null;
         }
 

@@ -1,13 +1,14 @@
 using System.Linq;
-using System.Threading;
 using NUnit.Framework;
-using Rubberduck.Inspections.Concrete;
-using RubberduckTests.Mocks;
+using Rubberduck.CodeAnalysis.Inspections;
+using Rubberduck.CodeAnalysis.Inspections.Concrete;
+using Rubberduck.Parsing.VBA;
+using Rubberduck.VBEditor.SafeComWrappers;
 
 namespace RubberduckTests.Inspections
 {
     [TestFixture]
-    public class VariableNotAssignedInspectionTests
+    public class VariableNotAssignedInspectionTests : InspectionTestsBase
     {
         [Test]
         [Category("Inspections")]
@@ -18,15 +19,7 @@ namespace RubberduckTests.Inspections
     Dim var1 As String
 End Sub";
 
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new VariableNotAssignedInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(1, inspectionResults.Count());
-            }
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -39,15 +32,7 @@ End Sub";
     Dim var2 As Date
 End Sub";
 
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new VariableNotAssignedInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(2, inspectionResults.Count());
-            }
+            Assert.AreEqual(2, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -60,15 +45,7 @@ End Sub";
     var1 = ""test""
 End Function";
 
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new VariableNotAssignedInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(0, inspectionResults.Count());
-            }
+            Assert.AreEqual(0, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -83,15 +60,7 @@ End Function";
     Dim var2 as String
 End Sub";
 
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new VariableNotAssignedInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.AreEqual(1, inspectionResults.Count());
-            }
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
@@ -109,16 +78,307 @@ Sub Bar(ByRef value As String)
 End Sub
 ";
 
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new VariableNotAssignedInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.IsFalse(inspectionResults.Any());
-            }
+            Assert.AreEqual(0, InspectionResultsForStandardModule(inputCode).Count());
         }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_StrictlyInsideByRefAssignment_ReturnsResult()
+        {
+            const string inputCode = @"
+Sub Foo()
+    Dim var1 As String
+    Bar var1 & ""WTF""
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_ModuleVariable_ReturnsResult_Private()
+        {
+            const string inputCode = @"
+Private myVariable As Variant
+
+Sub Foo()
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_ModuleVariable_ReturnsResult_Public()
+        {
+            const string inputCode = @"
+Public myVariable As Variant
+
+Sub Foo()
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_GivenByRefAssignment_ModuleVariable_DoesNotReturnResult()
+        {
+            const string inputCode = @"
+Public myVariable As Variant
+
+Sub Foo()
+    Bar myVariable
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForStandardModule(inputCode).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_StrictlyInsideByRefAssignment_ModuleVariable_ReturnsResult()
+        {
+            const string inputCode = @"
+Public myVariable As Variant
+
+Sub Foo()
+    Bar myVariable & ""WTF""
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForStandardModule(inputCode).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_AssignmentFromOtherModule_ModuleVariable_DoesNotReturnResult()
+        {
+            const string otherModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    myVariable = 42
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForModules(
+                ("OtherModule", otherModuleCode, ComponentType.StandardModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_GivenByRefAssignmentInOtherModule_ModuleVariable_DoesNotReturnResult()
+        {
+            const string otherModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Bar myVariable
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForModules(
+                ("OtherModule", otherModuleCode, ComponentType.StandardModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_StrictlyInsideByRefAssignmentInOtherModule_QualifiedModuleVariable_ReturnsResult()
+        {
+            const string otherModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Bar myVariable & ""WTF""
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForModules(
+                ("OtherModule", otherModuleCode, ComponentType.StandardModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_Assignment_QualifiedModuleVariable_DoesNotReturnResult()
+        {
+            const string otherModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    OtherModule.myVariable = 42
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForModules(
+                ("OtherModule", otherModuleCode, ComponentType.StandardModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_GivenByRefAssignment_QualifiedModuleVariable_DoesNotReturnResult()
+        {
+            const string otherModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Bar OtherModule.myVariable
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForModules(
+                ("OtherModule", otherModuleCode, ComponentType.StandardModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+                ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_StrictlyInsideByRefAssignment_QualifiedModuleVariable_ReturnsResult()
+        {
+            const string otherModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Bar OtherModule.myVariable & ""WTF""
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForModules(
+                ("OtherModule", otherModuleCode, ComponentType.StandardModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_AssignmentInOtherModule_ClassModuleVariable_DoesNotReturnResult()
+        {
+            const string classModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Dim cls As TestClass
+    Set cls = New TestClass
+    cls.myVariable = 42
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForModules(
+                ("TestClass", classModuleCode, ComponentType.ClassModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_GivenByRefAssignment_ClassModuleVariable_DoesNotReturnResult()
+        {
+            const string classModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Dim cls As TestClass
+    Set cls = New TestClass
+    Bar cls.myVariable
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(0, InspectionResultsForModules(
+                ("TestClass", classModuleCode, ComponentType.ClassModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
+        [Test]
+        [Category("Inspections")]
+        public void VariableNotAssigned_StrictlyInsideByRefAssignment_ClassModuleVariable_ReturnsResult()
+        {
+            const string classModuleCode = @"
+Public myVariable As Variant
+";
+
+            const string moduleCode = @"
+Sub Foo()
+    Dim cls As TestClass
+    Set cls = New TestClass
+    Bar cls.myVariable & ""WTF""
+End Sub
+
+Sub Bar(ByRef value As String)
+    value = ""test""
+End Sub
+";
+
+            Assert.AreEqual(1, InspectionResultsForModules(
+                ("TestClass", classModuleCode, ComponentType.ClassModule),
+                ("TestModule", moduleCode, ComponentType.StandardModule)
+            ).Count());
+        }
+
         [Test]
         [Category("Inspections")]
         public void VariableNotAssigned_Ignored_DoesNotReturnResult()
@@ -129,25 +389,21 @@ End Sub
 Dim var1 As String
 End Sub";
 
-            var vbe = MockVbeBuilder.BuildFromSingleStandardModule(inputCode, out _);
-            using (var state = MockParser.CreateAndParse(vbe.Object))
-            {
-
-                var inspection = new VariableNotAssignedInspection(state);
-                var inspectionResults = inspection.GetInspectionResults(CancellationToken.None);
-
-                Assert.IsFalse(inspectionResults.Any());
-            }
+            Assert.AreEqual(0, InspectionResultsForStandardModule(inputCode).Count());
         }
 
         [Test]
         [Category("Inspections")]
         public void InspectionName()
         {
-            const string inspectionName = "VariableNotAssignedInspection";
             var inspection = new VariableNotAssignedInspection(null);
 
-            Assert.AreEqual(inspectionName, inspection.Name);
+            Assert.AreEqual(nameof(VariableNotAssignedInspection), inspection.Name);
+        }
+
+        protected override IInspection InspectionUnderTest(RubberduckParserState state)
+        {
+            return new VariableNotAssignedInspection(state);
         }
     }
 }
